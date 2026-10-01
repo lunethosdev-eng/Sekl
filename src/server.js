@@ -6,7 +6,7 @@ const { Server } = require('socket.io');
 
 const { PORT } = require('./config');
 const { supabase } = require('./config/supabase');
-const { startWorker } = require('./workers/queueWorkers'); // CORREGIDO
+const { startWorker } = require('./workers/queueWorkers'); // <-- RUTA CORREGIDA
 const { setupCron } = require('./workers/cronWorker');
 
 const app = express();
