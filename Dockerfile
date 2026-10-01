@@ -1,25 +1,25 @@
 FROM node:22-slim
 
-# 1. Instalar dependencias del sistema (ffmpeg y python3 para yt-dlp)
+# Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     python3 \
+    python3-pip \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Descargar e instalar yt-dlp globalmente
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
-    && chmod +x /usr/local/bin/yt-dlp
+# Instalar yt-dlp con pip (más confiable que el binario)
+RUN pip3 install --break-system-packages -U yt-dlp
 
-# 3. Directorio de trabajo
+# Actualizar yt-dlp a nightly (recomendado)
+RUN yt-dlp -U || true
+
 WORKDIR /app
 
-# 4. Instalar dependencias de Node.js
 COPY package*.json ./
 RUN npm install --production
 
-# 5. Copiar el resto del código
 COPY . .
 
-# 6. Comando de arranque
+# Si tienes cookies.txt, se copiará automáticamente
 CMD ["node", "src/server.js"]
