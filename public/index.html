@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music Scraper Dashboard & Engine Docs</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+    h1, h2, h3 { color: var(--accent); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px; }
+    .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid #334155; font-size: 0.9rem; }
+    pre { background: #090d16; padding: 15px; border-radius: 8px; overflow-x: auto; color: #a5f3fc; font-size: 0.85rem; }
+    img, video { border-radius: 6px; object-fit: cover; }
+    button { background: var(--accent); color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <h1>Music Engine Dashboard & Documentation</h1>
+
+  <!-- Metricas & Graficas -->
+  <div class="grid">
+    <div class="card">
+      <h3>Métricas del Sistema</h3>
+      <p>Canciones Totales: <b id="statTracks">0</b></p>
+      <p>En Cola (Pendientes): <b id="statPending">0</b></p>
+      <p>Procesadas con Éxito: <b id="statCompleted">0</b></p>
+    </div>
+    <div class="card">
+      <h3>Actividad de Descarga</h3>
+      <canvas id="metricsChart" height="120"></canvas>
+    </div>
+  </div>
+
+  <!-- Catálogo y Reproductor -->
+  <div class="card">
+    <h2>Catálogo de Música Descargada</h2>
+    <div id="tracksCatalog" class="grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));"></div>
+  </div>
+
+  <br>
+
+  <!-- Cola de Descargas en Vivo -->
+  <div class="card">
+    <h2>Cola de Procesamiento en Tiempo Real</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Artista / Título</th>
+          <th>Estado</th>
+          <th>Progreso</th>
+        </tr>
+      </thead>
+      <tbody id="queueTable"></tbody>
+    </table>
+  </div>
+
+  <br>
+
+  <!-- Documentación de Fetch e Integración Offline para Clientes -->
+  <div class="card">
+    <h2>Guía de Integración para Clientes (Web, Android, Roku)</h2>
+    <p>Para evitar dependencias de URLs directas y permitir la reproducción offline, los clientes deben solicitar el stream binario y persistirlo localmente.</p>
+
+    <h3>1. JavaScript / Web / WebView (Guardado Automático en IndexedDB)</h3>
+    <pre><code>
+// Función para descargar y guardar el archivo MP3 directamente en IndexedDB
+async function downloadAndCacheAudio(trackId, audioUrl) {
+  const db = await openDB();
+  const response = await fetch(audioUrl);
+  const blob = await response.blob();
+  
+  const tx = db.transaction('audio_store', 'readwrite');
+  await tx.objectStore('audio_store').put(blob, trackId);
+  console.log('Track guardado exitosamente en almacenamiento local IndexedDB');
+}
+
+// Reproducción offline desde IndexedDB
+async function playOffline(trackId) {
+  const db = await openDB();
+  const tx = db.transaction('audio_store', 'readonly');
+  const blob = await tx.objectStore('audio_store').get(trackId);
+  
+  const localUrl = URL.createObjectURL(blob);
+  const audio = new Audio(localUrl);
+  audio.play();
+}
+
+function openDB() {
+  return new Promise((resolve) => {
+    const req = indexedDB.open('MusicEngineCache', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('audio_store');
+    req.onsuccess = () => resolve(req.result);
+  });
+}
+    </code></pre>
+
+    <h3>2. Roku SceneGraph (BrightScript Caching en Local Storage)</h3>
+    <pre><code>
+' BrightScript: Descarga de MP3 a la memoria local cachefs:/ del dispositivo Roku
+sub DownloadTrackToRokuCache(audioUrl as String, localFilename as String)
+    request = CreateObject("roUrlTransfer")
+    request.SetUrl(audioUrl)
+    
+    localPath = "cachefs:/" + localFilename + ".mp3"
+    status = request.GetToFile(localPath)
+    
+    if status = 200
+        print "Archivo MP3 guardado exitosamente en cache local de Roku: "; localPath
+        PlayRokuLocalAudio(localPath)
+    end if
+end sub
+
+sub PlayRokuLocalAudio(localPath as String)
+    audioNode = m.top.findNode("myAudioPlayer")
+    content = CreateObject("roSGNode", "ContentNode")
+    content.url = localPath
+    audioNode.content = content
+    audioNode.control = "play"
+end sub
+    </code></pre>
+  </div>
+
+  <script>
+    const socket = io();
+    
+    // Inicializar Gráfica
+    const ctx = document.getElementById('metricsChart').getContext('2d');
+    const metricsChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: ['-50m', '-40m', '-30m', '-20m', '-10m', 'Ahora'],
+        datasets: [{
+          label: 'Descargas Completadas',
+          data: [12, 45, 120, 230, 380, 500],
+          borderColor: '#38bdf8',
+          tension: 0.3
+        }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+
+    async function loadStats() {
+      const res = await fetch('/api/stats');
+      const data = await res.json();
+      document.getElementById('statTracks').innerText = data.totalTracks;
+      document.getElementById('statPending').innerText = data.pendingQueue;
+      document.getElementById('statCompleted').innerText = data.completedQueue;
+    }
+
+    async function loadTracks() {
+      const res = await fetch('/api/tracks');
+      const tracks = await res.json();
+      const container = document.getElementById('tracksCatalog');
+      container.innerHTML = '';
+      
+      tracks.forEach(track => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.style.padding = '10px';
+        
+        let visualMedia = `<img src="${track.cover_url || 'https://via.placeholder.com/150'}" style="width:100%; height:150px;">`;
+        if (track.animated_cover_url) {
+          visualMedia = `<video src="${track.animated_cover_url}" autoplay loop muted style="width:100%; height:150px;"></video>`;
+        }
+
+        div.innerHTML = `
+          ${visualMedia}
+          <h4 style="margin:5px 0;">${track.title}</h4>
+          <p style="margin:0; font-size:0.8rem; color:#94a3b8;">${track.artist}</p>
+          <audio controls src="${track.mp3_url}" style="width:100%; margin-top:8px;"></audio>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function loadQueue() {
+      const res = await fetch('/api/queue');
+      const items = await res.json();
+      const tbody = document.getElementById('queueTable');
+      tbody.innerHTML = '';
+      
+      items.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.id = `queue-row-${item.id}`;
+        tr.innerHTML = `
+          <td>${item.artist} - ${item.track_title}</td>
+          <td><span style="color:${item.status === 'completed' ? '#4ade80' : '#facc15'}">${item.status}</span></td>
+          <td>${item.progress}%</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    socket.on('queue_update', (data) => {
+      loadQueue();
+      loadStats();
+    });
+
+    loadStats();
+    loadTracks();
+    loadQueue();
+  </script>
+</body>
+</html>
