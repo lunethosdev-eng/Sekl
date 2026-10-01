@@ -10,17 +10,16 @@ const fs = require('fs');
 function downloadAudio(searchQuery, outputDir) {
   return new Promise((resolve, reject) => {
     if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: recursive });
+      fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // Si no es URL directa, usamos la sintaxis de búsqueda ytsearch1
     const target = searchQuery.startsWith('http') ? searchQuery : `ytsearch1:${searchQuery}`;
     const outputPattern = path.join(outputDir, '%(id)s.%(ext)s');
 
     const args = [
       target,
       '-x',                             // Extraer audio
-      '--audio-format', 'mp3',          // Convertir a MP3 usando ffmpeg
+      '--audio-format', 'mp3',          // Convertir a MP3
       '--audio-quality', '0',           // Máxima calidad
       '-o', outputPattern,              // Formato de salida
       '--no-playlist',                  // Evitar descargar listas completas
@@ -57,4 +56,7 @@ function downloadAudio(searchQuery, outputDir) {
   });
 }
 
-module.exports = { downloadAudio };
+// Alias para garantizar compatibilidad con queueWorkers.js
+const downloadMp3 = downloadAudio;
+
+module.exports = { downloadAudio, downloadMp3 };
