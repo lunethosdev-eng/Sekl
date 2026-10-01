@@ -28,28 +28,32 @@ async function processQueueItem(io) {
   if (error || !queueItems || queueItems.length === 0) return;
 
   const item = queueItems[0];
-  const fileId = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  const fileId = `\( {Date.now()}_ \){Math.random().toString(36).substring(7)}`;
 
   try {
     await supabase.from('download_queue').update({ status: 'processing', progress: 10 }).eq('id', item.id);
     io.emit('queue_update', { id: item.id, status: 'processing', progress: 10, title: item.track_title });
 
-    // 1. Descarga MP3 mediante yt-dlp
+    // 1. Descarga MP3
     const searchQuery = `${item.artist} - ${item.track_title}`;
     const localMp3Path = await downloadMp3(searchQuery, fileId);
 
     await supabase.from('download_queue').update({ progress: 50 }).eq('id', item.id);
     io.emit('queue_update', { id: item.id, status: 'processing', progress: 50 });
 
-    // 2. Metadatos y portadas desde Apple Music
+    // 2. Metadatos y portadas
     const appleMeta = await getAppleMusicMetadata(item.artist, item.track_title);
 
     let coverUrl = null;
     let animatedCoverUrl = null;
 
     if (appleMeta && appleMeta.staticCover) {
-      const imgBuffer = (await axios.get(appleMeta.staticCover, { responseType: 'arraybuffer' })).data;
-      coverUrl = await uploadToSupabaseBucket('covers', `${fileId}.jpg`, imgBuffer, 'image/jpeg');
+      try {
+        const imgBuffer = (await axios.get(appleMeta.staticCover, { responseType: 'arraybuffer' })).data;
+        coverUrl = await uploadToSupabaseBucket('covers', `${fileId}.jpg`, imgBuffer, 'image/jpeg');
+      } catch (e) {
+        console.warn('Error subiendo cover estático');
+      }
     }
 
     if (appleMeta && appleMeta.animatedCover) {
@@ -57,16 +61,16 @@ async function processQueueItem(io) {
         const videoBuffer = (await axios.get(appleMeta.animatedCover, { responseType: 'arraybuffer' })).data;
         animatedCoverUrl = await uploadToSupabaseBucket('animated-covers', `${fileId}.mp4`, videoBuffer, 'video/mp4');
       } catch (e) {
-        console.warn('Falló la descarga del cover animado, usando cover estático.');
+        console.warn('Falló la descarga del cover animado');
       }
     }
 
-    // 3. Subir MP3 a Supabase Storage
+    // 3. Subir MP3
     const mp3Buffer = fs.readFileSync(localMp3Path);
     const mp3Url = await uploadToSupabaseBucket('songs', `${fileId}.mp3`, mp3Buffer, 'audio/mpeg');
-    fs.unlinkSync(localMp3Path); // Limpieza de archivo temporal local
+    fs.unlinkSync(localMp3Path);
 
-    // 4. Registro final en la base de datos
+    // 4. Guardar en base de datos
     await supabase.from('tracks').insert({
       title: item.track_title,
       artist: item.artist,
@@ -79,17 +83,23 @@ async function processQueueItem(io) {
 
     await supabase.from('download_queue').update({ status: 'completed', progress: 100 }).eq('id', item.id);
     io.emit('queue_update', { id: item.id, status: 'completed', progress: 100 });
+
+    console.log(`✅ Completado: ${item.artist} - ${item.track_title}`);
   } catch (err) {
-    console.error('Error procesando elemento de la cola:', err);
-    await supabase.from('download_queue').update({ status: 'failed', error_message: err.message }).eq('id', item.id);
+    console.error('Error procesando elemento de la cola:', err.message);
+    await supabase.from('download_queue').update({ 
+      status: 'failed', 
+      error_message: err.message 
+    }).eq('id', item.id);
     io.emit('queue_update', { id: item.id, status: 'failed', error: err.message });
   }
 }
 
 function startWorker(io) {
+  // Cada 25 segundos (más lento = menos bloqueos de YouTube)
   setInterval(() => {
     processQueueItem(io);
-  }, 5000);
+  }, 25000);
 }
 
 module.exports = { startWorker };
