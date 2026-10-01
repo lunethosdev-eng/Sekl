@@ -1,42 +1,53 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const { COOKIES_PATH } = require('../config');
 
-function downloadMp3(searchQuery, outputFilename) {
+/**
+ * Descarga el audio de YouTube usando yt-dlp.
+ * @param {string} searchQuery - Término de búsqueda o URL de YouTube.
+ * @param {string} outputDir - Directorio donde se guardará el archivo MP3.
+ */
+function downloadAudio(searchQuery, outputDir) {
   return new Promise((resolve, reject) => {
-    const outputDir = path.join(__dirname, '../../tmp');
     if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
+      fs.mkdirSync(outputDir, { recursive: recursive });
     }
 
-    const outputPath = path.join(outputDir, `${outputFilename}.mp3`);
-    const binDir = path.join(__dirname, '../../bin');
-    const binPath = path.join(binDir, 'yt-dlp');
-
-    const executable = fs.existsSync(binPath) ? binPath : 'yt-dlp';
+    // Si no es URL directa, usamos la sintaxis de búsqueda ytsearch1
+    const target = searchQuery.startsWith('http') ? searchQuery : `ytsearch1:${searchQuery}`;
+    const outputPattern = path.join(outputDir, '%(id)s.%(ext)s');
 
     const args = [
-      `ytsearch1:${searchQuery}`,
-      '--extract-audio',
-      '--audio-format', 'mp3',
-      '--audio-quality', '0',
-      '--output', outputPath,
-      '--no-playlist',
-      '--cookies', COOKIES_PATH
+      target,
+      '-x',                             // Extraer audio
+      '--audio-format', 'mp3',          // Convertir a MP3 usando ffmpeg
+      '--audio-quality', '0',           // Máxima calidad
+      '-o', outputPattern,              // Formato de salida
+      '--no-playlist',                  // Evitar descargar listas completas
+      '--no-warnings',
+      '--extractor-args', 'youtube:player_client=android,web' // Burlar bloqueos de IP en Render
     ];
 
-    if (fs.existsSync(path.join(binDir, 'ffmpeg'))) {
-      args.push('--ffmpeg-location', binDir);
-    }
+    const child = spawn('yt-dlp', args);
 
-    const child = spawn(executable, args);
+    let stdoutData = '';
+    let stderrData = '';
+
+    child.stdout.on('data', (data) => {
+      stdoutData += data.toString();
+    });
+
+    child.stderr.on('data', (data) => {
+      stderrData += data.toString();
+    });
 
     child.on('close', (code) => {
-      if (code === 0 && fs.existsSync(outputPath)) {
-        resolve(outputPath);
+      if (code === 0) {
+        resolve({ success: true, logs: stdoutData });
       } else {
-        reject(new Error(`yt-dlp finalizó con código de estado ${code}`));
+        console.error('--- Detalle de error de yt-dlp ---');
+        console.error(stderrData);
+        reject(new Error(`yt-dlp finalizó con código de estado ${code}: ${stderrData.slice(0, 300)}`));
       }
     });
 
@@ -46,4 +57,4 @@ function downloadMp3(searchQuery, outputFilename) {
   });
 }
 
-module.exports = { downloadMp3 };
+module.exports = { downloadAudio };
