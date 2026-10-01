@@ -1,4 +1,3 @@
-// src/utils/ytdlp.js
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -12,7 +11,9 @@ function downloadMp3(searchQuery, outputFilename) {
     }
 
     const outputPath = path.join(outputDir, `${outputFilename}.mp3`);
-    const binPath = path.join(__dirname, '../../bin/yt-dlp');
+    const binDir = path.join(__dirname, '../../bin');
+    const binPath = path.join(binDir, 'yt-dlp');
+
     const executable = fs.existsSync(binPath) ? binPath : 'yt-dlp';
 
     const args = [
@@ -25,13 +26,17 @@ function downloadMp3(searchQuery, outputFilename) {
       '--cookies', COOKIES_PATH
     ];
 
+    if (fs.existsSync(path.join(binDir, 'ffmpeg'))) {
+      args.push('--ffmpeg-location', binDir);
+    }
+
     const child = spawn(executable, args);
 
     child.on('close', (code) => {
       if (code === 0 && fs.existsSync(outputPath)) {
         resolve(outputPath);
       } else {
-        reject(new Error(`yt-dlp exited with code ${code}`));
+        reject(new Error(`yt-dlp finalizó con código de estado ${code}`));
       }
     });
 
