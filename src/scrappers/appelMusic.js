@@ -1,4 +1,3 @@
-// src/scrapers/appleMusic.js
 const axios = require('axios');
 const cheerio = require('cheerio');
 
@@ -16,7 +15,6 @@ async function getAppleMusicMetadata(artist, title) {
     const staticCover = track.artworkUrl100.replace('100x100bb', '1000x1000bb');
     let animatedCover = null;
 
-    // Extracción de Animated Covers desde la vista Web de Apple Music
     try {
       const pageUrl = track.trackViewUrl;
       const pageRes = await axios.get(pageUrl, {
@@ -28,7 +26,7 @@ async function getAppleMusicMetadata(artist, title) {
         animatedCover = videoSrc;
       }
     } catch (e) {
-      // Si falla la extracción animada, se preserva el cover estático de alta resolución
+      // Fallback a portada estática si falla la vista previa animada
     }
 
     return {
