@@ -1,7 +1,7 @@
 const cron = require('node-cron');
 const { TARGET_ARTISTS } = require('../config');
 const { supabase } = require('../config/supabase');
-const { fetchFullDiscography } = require('../scrapers/discography');
+const { fetchFullDiscography } = require('../scrappers/discography');
 
 async function syncArtistDiscographies() {
   console.log('Iniciando sincronización de discografías completas...');
@@ -12,7 +12,6 @@ async function syncArtistDiscographies() {
 
     if (songs.length === 0) continue;
 
-    // Obtener canciones registradas para evitar duplicados
     const { data: existingQueue } = await supabase
       .from('download_queue')
       .select('track_title')
@@ -50,10 +49,8 @@ async function syncArtistDiscographies() {
 }
 
 function setupCron() {
-  // Ejecutar al arrancar el servidor
   syncArtistDiscographies();
 
-  // Re-escaneo automático cada 6 horas
   cron.schedule('0 */6 * * *', () => {
     syncArtistDiscographies();
   });
