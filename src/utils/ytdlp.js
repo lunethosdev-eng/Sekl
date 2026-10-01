@@ -10,55 +10,85 @@ function downloadMp3(searchQuery, fileId) {
     }
 
     const outputPath = path.join(outputDir, `${fileId}.%(ext)s`);
-    const target = searchQuery.startsWith('http') 
-      ? searchQuery 
+    const target = searchQuery.startsWith('http')
+      ? searchQuery
       : `ytsearch1:${searchQuery}`;
 
-    // Ruta de cookies (primero busca en el proyecto, luego en /tmp)
-    const cookiesPath = fs.existsSync(path.join(__dirname, '../../cookies.txt'))
-      ? path.join(__dirname, '../../cookies.txt')
-      : '/tmp/cookies.txt';
+    // Ruta de cookies (usa el cookies.txt que ya tienes en la raíz)
+    const cookiesPath = path.join(__dirname, '../../cookies.txt');
 
-    const args = [
-      target,
-      '-x',
-      '--audio-format', 'mp3',
-      '--audio-quality', '0',
-      '-o', outputPath,
-      '--no-playlist',
-      '--no-warnings',
-      '--extractor-args', 'youtube:player_client=tv_downgraded,mweb,web_embedded,android_vr',
-      // Si existen cookies, las usamos
-      ...(fs.existsSync(cookiesPath) ? ['--cookies', cookiesPath] : []),
+    // Varias combinaciones de clientes (prueba en orden hasta que una funcione)
+    const playerClients = [
+      'tv_downgraded,mweb,web_embedded',
+      'android_vr,tv_downgraded,mweb',
+      'web_embedded,mweb,tv_simply',
+      'mweb,web_safari,android_vr',
+      'tv_downgraded,web_embedded'
     ];
 
-    console.log('Ejecutando yt-dlp con:', args.join(' '));
+    let attempt = 0;
 
-    const child = spawn('yt-dlp', args);
-
-    let stderrData = '';
-    child.stderr.on('data', (data) => {
-      stderrData += data.toString();
-    });
-
-    child.on('close', (code) => {
-      if (code === 0) {
-        const finalPath = path.join(outputDir, `${fileId}.mp3`);
-        if (fs.existsSync(finalPath)) {
-          resolve(finalPath);
-        } else {
-          reject(new Error('Archivo MP3 no encontrado después de la descarga'));
-        }
-      } else {
-        console.error('--- Error yt-dlp ---');
-        console.error(stderrData);
-        reject(new Error(`yt-dlp falló: ${stderrData.slice(0, 500)}`));
+    function tryDownload() {
+      if (attempt >= playerClients.length) {
+        return reject(new Error('Todos los player_client fallaron'));
       }
-    });
 
-    child.on('error', (err) => {
-      reject(err);
-    });
+      const client = playerClients[attempt];
+      attempt++;
+
+      const args = [
+        target,
+        '-x',
+        '--audio-format', 'mp3',
+        '--audio-quality', '0',
+        '-o', outputPath,
+        '--no-playlist',
+        '--no-warnings',
+        '--force-ipv4',
+        '--extractor-args', `youtube:player_client=${client}`,
+      ];
+
+      // Siempre intentamos usar las cookies si existen
+      if (fs.existsSync(cookiesPath)) {
+        args.push('--cookies', cookiesPath);
+        console.log(`Usando cookies: ${cookiesPath}`);
+      } else {
+        console.log('⚠️ No se encontró cookies.txt');
+      }
+
+      console.log(`Intento \( {attempt}/ \){playerClients.length} → player_client=${client}`);
+
+      const child = spawn('yt-dlp', args);
+      let stderrData = '';
+
+      child.stderr.on('data', (data) => {
+        stderrData += data.toString();
+      });
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          const finalPath = path.join(outputDir, `${fileId}.mp3`);
+          if (fs.existsSync(finalPath)) {
+            console.log('✅ Descarga exitosa con', client);
+            return resolve(finalPath);
+          } else {
+            console.log('Archivo no encontrado, probando siguiente cliente...');
+            setTimeout(tryDownload, 2000);
+          }
+        } else {
+          console.log(`Falló con ${client}`);
+          console.log(stderrData.slice(0, 300));
+          setTimeout(tryDownload, 2000);
+        }
+      });
+
+      child.on('error', (err) => {
+        console.error('Error spawn:', err.message);
+        setTimeout(tryDownload, 2000);
+      });
+    }
+
+    tryDownload();
   });
 }
 
