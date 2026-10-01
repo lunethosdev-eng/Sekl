@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:22-slim
 
 # 1. Instalar dependencias del sistema (ffmpeg y python3 para yt-dlp)
 RUN apt-get update && apt-get install -y \
