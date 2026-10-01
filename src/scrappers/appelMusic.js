@@ -14,9 +14,23 @@ async function getAppleMusicMetadata(artist, title) {
 
     const $ = cheerio.load(response.data);
 
-    const staticCover = $('meta[property="og:image"]').attr('content') || null;
-    const videoSrc = $('video source[type="video/mp4"]').attr('src') \vert{}\vert{} $('meta[property="og:video"]').attr('content') || null;
-    const album = $('meta[property="music:album"]').attr('content') || 'Single';
+    // Carátula estática
+    const ogImage = $('meta[property="og:image"]').attr('content');
+    const staticCover = ogImage ? ogImage : null;
+
+    // Carátula animada / Video
+    const videoTag = $('video source[type="video/mp4"]').attr('src');
+    const videoMeta = $('meta[property="og:video"]').attr('content');
+    let videoSrc = null;
+    if (videoTag) {
+      videoSrc = videoTag;
+    } else if (videoMeta) {
+      videoSrc = videoMeta;
+    }
+
+    // Álbum
+    const albumMeta = $('meta[property="music:album"]').attr('content');
+    const album = albumMeta ? albumMeta : 'Single';
 
     return {
       staticCover,
