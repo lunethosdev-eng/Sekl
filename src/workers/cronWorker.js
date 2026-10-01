@@ -1,7 +1,5 @@
-// src/workers/cronWorker.js
 const cron = require('node-cron');
 const { supabase } = require('../config/supabase');
-const { TARGET_ARTISTS } = require('../config');
 
 const POPULAR_TRACKS_POOL = [
   { artist: 'Laufey', title: 'From The Start' },
@@ -17,9 +15,8 @@ const POPULAR_TRACKS_POOL = [
 ];
 
 function setupCron() {
-  // Se ejecuta al inicio de cada hora
   cron.schedule('0 * * * *', async () => {
-    console.log('Running Hourly Music Scraper Cron Routine...');
+    console.log('Ejecutando rutina Cron de scraping horario...');
     
     const itemsToInsert = [];
     for (let i = 0; i < 500; i++) {
@@ -33,9 +30,9 @@ function setupCron() {
 
     const { error } = await supabase.from('download_queue').insert(itemsToInsert);
     if (error) {
-      console.error('Error populating cron queue:', error);
+      console.error('Error poblando la cola por Cron:', error);
     } else {
-      console.log('Successfully queued 500 tracks.');
+      console.log('500 canciones añadidas a la cola correctamente.');
     }
   });
 }
