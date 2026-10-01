@@ -4,39 +4,27 @@ const cheerio = require('cheerio');
 async function getAppleMusicMetadata(artist, title) {
   try {
     const query = encodeURIComponent(`${artist} ${title}`);
-    const searchUrl = `https://itunes.apple.com/search?term=${query}&entity=song&limit=1`;
-    const response = await axios.get(searchUrl);
+    const searchUrl = `https://music.apple.com/us/search?term=${query}`;
 
-    if (!response.data.results || response.data.results.length === 0) {
-      return null;
-    }
-
-    const track = response.data.results[0];
-    const staticCover = track.artworkUrl100.replace('100x100bb', '1000x1000bb');
-    let animatedCover = null;
-
-    try {
-      const pageUrl = track.trackViewUrl;
-      const pageRes = await axios.get(pageUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-      });
-      const $ = cheerio.load(pageRes.data);
-      const videoSrc = $('video source[type="video/mp4"]').attr('src') \vert{}\vert{} $('meta[property="og:video"]').attr('content');
-      if (videoSrc) {
-        animatedCover = videoSrc;
+    const response = await axios.get(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
-    } catch (e) {
-      // Fallback a portada estática si falla la vista previa animada
-    }
+    });
+
+    const $ = cheerio.load(response.data);
+
+    const staticCover = $('meta[property="og:image"]').attr('content') || null;
+    const videoSrc = $('video source[type="video/mp4"]').attr('src') \vert{}\vert{} $('meta[property="og:video"]').attr('content') || null;
+    const album = $('meta[property="music:album"]').attr('content') || 'Single';
 
     return {
-      album: track.collectionName,
       staticCover,
-      animatedCover,
-      releaseDate: track.releaseDate
+      animatedCover: videoSrc,
+      album
     };
   } catch (error) {
-    console.error('Error fetching Apple Music metadata:', error.message);
+    console.error('Error obteniendo metadatos de Apple Music:', error.message);
     return null;
   }
 }
