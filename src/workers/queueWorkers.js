@@ -2,7 +2,7 @@ const fs = require('fs');
 const axios = require('axios');
 const { supabase } = require('../config/supabase');
 const { downloadMp3 } = require('../utils/ytdlp');
-const { getAppleMusicMetadata } = require('../scrapers/appleMusic');
+const { getAppleMusicMetadata } = require('../scrappers/appelMusic');
 
 async function uploadToSupabaseBucket(bucket, fileName, fileBuffer, mimeType) {
   const { data, error } = await supabase.storage
