@@ -2,61 +2,47 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-/**
- * Descarga el audio de YouTube usando yt-dlp.
- * @param {string} searchQuery - Término de búsqueda o URL de YouTube.
- * @param {string} outputDir - Directorio donde se guardará el archivo MP3.
- */
-function downloadAudio(searchQuery, outputDir) {
+function downloadMp3(searchQuery, fileId) {
   return new Promise((resolve, reject) => {
+    const outputDir = path.join('/tmp', 'downloads'); // o './temp'
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
+    const outputPath = path.join(outputDir, `${fileId}.%(ext)s`);
     const target = searchQuery.startsWith('http') ? searchQuery : `ytsearch1:${searchQuery}`;
-    const outputPattern = path.join(outputDir, '%(id)s.%(ext)s');
 
     const args = [
       target,
-      '-x',                             // Extraer audio
-      '--audio-format', 'mp3',          // Convertir a MP3
-      '--audio-quality', '0',           // Máxima calidad
-      '-o', outputPattern,              // Formato de salida
-      '--no-playlist',                  // Evitar descargar listas completas
+      '-x',
+      '--audio-format', 'mp3',
+      '--audio-quality', '0',
+      '-o', outputPath,
+      '--no-playlist',
       '--no-warnings',
-      '--extractor-args', 'youtube:player_client=android,web' // Burlar bloqueos de IP en Render
+      '--extractor-args', 'youtube:player_client=android,web'
     ];
 
     const child = spawn('yt-dlp', args);
 
-    let stdoutData = '';
     let stderrData = '';
-
-    child.stdout.on('data', (data) => {
-      stdoutData += data.toString();
-    });
-
-    child.stderr.on('data', (data) => {
-      stderrData += data.toString();
-    });
+    child.stderr.on('data', (data) => { stderrData += data.toString(); });
 
     child.on('close', (code) => {
       if (code === 0) {
-        resolve({ success: true, logs: stdoutData });
+        const finalPath = path.join(outputDir, `${fileId}.mp3`);
+        if (fs.existsSync(finalPath)) {
+          resolve(finalPath);           // ← ahora sí devuelve la ruta
+        } else {
+          reject(new Error('Archivo MP3 no encontrado después de la descarga'));
+        }
       } else {
-        console.error('--- Detalle de error de yt-dlp ---');
-        console.error(stderrData);
-        reject(new Error(`yt-dlp finalizó con código de estado ${code}: ${stderrData.slice(0, 300)}`));
+        reject(new Error(`yt-dlp falló: ${stderrData.slice(0, 400)}`));
       }
     });
 
-    child.on('error', (err) => {
-      reject(err);
-    });
+    child.on('error', reject);
   });
 }
 
-// Alias para garantizar compatibilidad con queueWorkers.js
-const downloadMp3 = downloadAudio;
-
-module.exports = { downloadAudio, downloadMp3 };
+module.exports = { downloadMp3 };
