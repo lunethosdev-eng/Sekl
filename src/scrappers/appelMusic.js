@@ -30,3 +30,4 @@ async function getAppleMusicMetadata(artist, title) {
 }
 
 module.exports = { getAppleMusicMetadata };
+
