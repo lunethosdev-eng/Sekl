@@ -1,40 +1,62 @@
 const cron = require('node-cron');
+const { TARGET_ARTISTS } = require('../config');
 const { supabase } = require('../config/supabase');
+const { fetchFullDiscography } = require('../scrapers/discography');
 
-const POPULAR_TRACKS_POOL = [
-  { artist: 'Laufey', title: 'From The Start' },
-  { artist: 'Laufey', title: 'Promise' },
-  { artist: "Her's", title: 'What Once Was' },
-  { artist: "Her's", title: 'Cool with You' },
-  { artist: 'Grupo Frontera', title: 'un x100to' },
-  { artist: 'Grupo Frontera', title: 'El Amor de Su Vida' },
-  { artist: 'Eve', title: 'Kaikai Kitan' },
-  { artist: 'Bad Bunny', title: 'Monaco' },
-  { artist: 'Cuarteto de Nos', title: 'Enamorado Tuyo' },
-  { artist: 'Depresión Sonora', title: 'Ya No Valgo Madre' }
-];
+async function syncArtistDiscographies() {
+  console.log('Iniciando sincronización de discografías completas...');
+
+  for (const artist of TARGET_ARTISTS) {
+    console.log(`Obteniendo canciones de: ${artist}`);
+    const songs = await fetchFullDiscography(artist);
+
+    if (songs.length === 0) continue;
+
+    // Obtener canciones registradas para evitar duplicados
+    const { data: existingQueue } = await supabase
+      .from('download_queue')
+      .select('track_title')
+      .eq('artist', artist);
+
+    const { data: existingTracks } = await supabase
+      .from('tracks')
+      .select('title')
+      .eq('artist', artist);
+
+    const registeredTitles = new Set([
+      ...(existingQueue || []).map(q => q.track_title.toLowerCase()),
+      ...(existingTracks || []).map(t => t.title.toLowerCase())
+    ]);
+
+    const newItems = songs
+      .filter(song => !registeredTitles.has(song.title.toLowerCase()))
+      .map(song => ({
+        artist: song.artist,
+        track_title: song.title,
+        status: 'pending'
+      }));
+
+    if (newItems.length > 0) {
+      const { error } = await supabase.from('download_queue').insert(newItems);
+      if (error) {
+        console.error(`Error insertando canciones de ${artist}:`, error.message);
+      } else {
+        console.log(`Se añadieron ${newItems.length} canciones nuevas a la cola para ${artist}.`);
+      }
+    } else {
+      console.log(`Todas las canciones de ${artist} ya están en la cola o descargadas.`);
+    }
+  }
+}
 
 function setupCron() {
-  cron.schedule('0 * * * *', async () => {
-    console.log('Ejecutando rutina Cron de scraping horario...');
-    
-    const itemsToInsert = [];
-    for (let i = 0; i < 500; i++) {
-      const template = POPULAR_TRACKS_POOL[i % POPULAR_TRACKS_POOL.length];
-      itemsToInsert.push({
-        artist: template.artist,
-        track_title: `${template.title} (Batch #${Math.floor(Math.random() * 90000 + 10000)})`,
-        status: 'pending'
-      });
-    }
+  // Ejecutar al arrancar el servidor
+  syncArtistDiscographies();
 
-    const { error } = await supabase.from('download_queue').insert(itemsToInsert);
-    if (error) {
-      console.error('Error poblando la cola por Cron:', error);
-    } else {
-      console.log('500 canciones añadidas a la cola correctamente.');
-    }
+  // Re-escaneo automático cada 6 horas
+  cron.schedule('0 */6 * * *', () => {
+    syncArtistDiscographies();
   });
 }
 
-module.exports = { setupCron };
+module.exports = { setupCron, syncArtistDiscographies };
