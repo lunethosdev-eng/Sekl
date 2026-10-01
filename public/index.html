@@ -21,9 +21,8 @@
 </head>
 <body>
 
-  <h1>Music Engine Dashboard & Documentation</h1>
+  <h1>Music Engine Dashboard</h1>
 
-  <!-- Metricas & Graficas -->
   <div class="grid">
     <div class="card">
       <h3>Métricas del Sistema</h3>
@@ -37,15 +36,13 @@
     </div>
   </div>
 
-  <!-- Catálogo y Reproductor -->
   <div class="card">
-    <h2>Catálogo de Música Descargada</h2>
+    <h2>Catálogo de Música</h2>
     <div id="tracksCatalog" class="grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));"></div>
   </div>
 
   <br>
 
-  <!-- Cola de Descargas en Vivo -->
   <div class="card">
     <h2>Cola de Procesamiento en Tiempo Real</h2>
     <table>
@@ -62,14 +59,11 @@
 
   <br>
 
-  <!-- Documentación de Fetch e Integración Offline para Clientes -->
   <div class="card">
     <h2>Guía de Integración para Clientes (Web, Android, Roku)</h2>
-    <p>Para evitar dependencias de URLs directas y permitir la reproducción offline, los clientes deben solicitar el stream binario y persistirlo localmente.</p>
 
-    <h3>1. JavaScript / Web / WebView (Guardado Automático en IndexedDB)</h3>
+    <h3>1. JavaScript / Web (Almacenamiento Local en IndexedDB)</h3>
     <pre><code>
-// Función para descargar y guardar el archivo MP3 directamente en IndexedDB
 async function downloadAndCacheAudio(trackId, audioUrl) {
   const db = await openDB();
   const response = await fetch(audioUrl);
@@ -77,10 +71,9 @@ async function downloadAndCacheAudio(trackId, audioUrl) {
   
   const tx = db.transaction('audio_store', 'readwrite');
   await tx.objectStore('audio_store').put(blob, trackId);
-  console.log('Track guardado exitosamente en almacenamiento local IndexedDB');
+  console.log('Audio guardado localmente.');
 }
 
-// Reproducción offline desde IndexedDB
 async function playOffline(trackId) {
   const db = await openDB();
   const tx = db.transaction('audio_store', 'readonly');
@@ -100,9 +93,8 @@ function openDB() {
 }
     </code></pre>
 
-    <h3>2. Roku SceneGraph (BrightScript Caching en Local Storage)</h3>
+    <h3>2. Roku SceneGraph (BrightScript Caching)</h3>
     <pre><code>
-' BrightScript: Descarga de MP3 a la memoria local cachefs:/ del dispositivo Roku
 sub DownloadTrackToRokuCache(audioUrl as String, localFilename as String)
     request = CreateObject("roUrlTransfer")
     request.SetUrl(audioUrl)
@@ -111,7 +103,6 @@ sub DownloadTrackToRokuCache(audioUrl as String, localFilename as String)
     status = request.GetToFile(localPath)
     
     if status = 200
-        print "Archivo MP3 guardado exitosamente en cache local de Roku: "; localPath
         PlayRokuLocalAudio(localPath)
     end if
 end sub
@@ -129,7 +120,6 @@ end sub
   <script>
     const socket = io();
     
-    // Inicializar Gráfica
     const ctx = document.getElementById('metricsChart').getContext('2d');
     const metricsChart = new Chart(ctx, {
       type: 'line',
@@ -197,7 +187,7 @@ end sub
       });
     }
 
-    socket.on('queue_update', (data) => {
+    socket.on('queue_update', () => {
       loadQueue();
       loadStats();
     });
