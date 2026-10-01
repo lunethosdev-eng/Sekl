@@ -1,4 +1,3 @@
-// src/server.js
 const express = require('express');
 const http = require('http');
 const path = require('path');
@@ -45,7 +44,7 @@ app.get('/api/stats', async (req, res) => {
 
 app.post('/api/queue/add', async (req, res) => {
   const { artist, title } = req.body;
-  if (!artist || !title) return res.status(400).json({ error: 'Artist and title required' });
+  if (!artist || !title) return res.status(400).json({ error: 'Faltan parámetros artist y title' });
 
   const { data, error } = await supabase.from('download_queue').insert([{ artist, track_title: title, status: 'pending' }]).select();
   if (error) return res.status(500).json({ error: error.message });
@@ -54,9 +53,8 @@ app.post('/api/queue/add', async (req, res) => {
   res.json(data[0]);
 });
 
-// Inicialización de workers y servidor
 server.listen(PORT, () => {
-  console.log(`Music Scraper Server active on port ${PORT}`);
+  console.log(`Servidor de Music Engine activo en el puerto ${PORT}`);
   startWorker(io);
   setupCron();
 });
