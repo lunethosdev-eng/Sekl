@@ -1,4 +1,3 @@
-// src/config/index.js
 const path = require('path');
 const fs = require('fs');
 
@@ -12,8 +11,8 @@ if (!fs.existsSync(cookiesPath)) {
 
 module.exports = {
   PORT: process.env.PORT || 3000,
-  SUPABASE_URL: 'https://ajbmpgnzkgtcmulocftd.supabase.co',
-  SUPABASE_SERVICE_ROLE: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqYm1wZ256a2d0Y211bG9jZnRkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDM0NTYyOSwiZXhwIjoyMTA1OTIxNjI5fQ.JIw6EUefVcnQ7-P8-lRg__bAhEJvjcQYGFfaXpk9Vik',
+  SUPABASE_URL: process.env.SUPABASE_URL || 'https://ajbmpgnzkgtcmulocftd.supabase.co',
+  SUPABASE_SERVICE_ROLE: process.env.SUPABASE_SERVICE_ROLE || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqYm1wZ256a2d0Y211bG9jZnRkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDM0NTYyOSwiZXhwIjoyMTA1OTIxNjI5fQ.JIw6EUefVcnQ7-P8-lRg__bAhEJvjcQYGFfaXpk9Vik',
   COOKIES_PATH: cookiesPath,
   TARGET_ARTISTS: ['Laufey', "Her's", 'Grupo Frontera', 'Eve', 'Bad Bunny', 'Cuarteto de Nos', 'Depresión Sonora']
 };
